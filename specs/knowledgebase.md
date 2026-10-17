@@ -34,7 +34,7 @@ módulo `assistant` (ver `specs/assistant.md`), não a este.
 | GET | /api/kb/articles?q=termo | — | `List<ArticleResponse>` (200) | sem `q`, lista tudo |
 
 ## Data Model
-- `knowledgebase.kb_articles`: `id (uuid, pk)`, `title (varchar, not null)`, `body (text, not null)`, `tags (varchar[], nullable)`, `created_at (timestamp, not null)`, `search_vector (tsvector, generated)`.
+- `knowledgebase.kb_articles`: `id (uuid, pk)`, `title (varchar, not null)`, `body (text, not null)`, `tags (varchar[], nullable)`, `created_at (timestamp, not null)`. O `tsvector` de busca e computado em tempo de consulta (`to_tsvector(...)` na query), nao armazenado em coluna gerada — Postgres exige que a expressao de uma coluna `GENERATED ... STORED` seja `IMMUTABLE`, e `to_tsvector` com config em texto e apenas `STABLE`.
 
 ## Events Published / Consumed
 - Publishes: (nenhum)

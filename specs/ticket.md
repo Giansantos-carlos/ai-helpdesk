@@ -39,7 +39,7 @@ não deve ser modificado quando a lógica de IA mudar.
 | GET | /api/tickets?status= | — | `List<TicketResponse>` (200) | |
 
 ## Data Model
-- `ticket.tickets`: `id (uuid, pk)`, `subject (varchar, not null)`, `status (varchar, not null)`, `requester_id (uuid, not null)`, `assignee_id (uuid, nullable)`, `created_at (timestamp, not null)`, `closed_at (timestamp, nullable)`.
+- `ticket.tickets`: `id (uuid, pk)`, `subject (varchar, not null)`, `status (varchar, not null)`, `requester_id (uuid, not null)`, `created_at (timestamp, not null)`, `closed_at (timestamp, nullable)`. Sem `assignee_id`: atribuicao de atendente e Non-Goal explicito (ver abaixo).
 - `ticket.ticket_messages`: `id (uuid, pk)`, `ticket_id (uuid, not null, sem FK física — ver Riscos)`, `author_id (uuid, not null)`, `body (text, not null)`, `created_at (timestamp, not null)`.
 
 ## Events Published / Consumed

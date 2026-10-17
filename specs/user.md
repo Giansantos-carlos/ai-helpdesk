@@ -14,8 +14,9 @@ simples do sistema — existe para dar suporte aos outros três, não como produ
 - Permitir buscar um usuário por id, para os outros módulos resolverem nomes/perfis.
 
 ## Non-Goals
-- Autenticação real (login, senha, sessão, JWT). Identificação do usuário atual é feita via
-  header `X-User-Id`, sem verificação de identidade — ver `shared/web/CurrentUser`.
+- Autenticação real (login, senha, sessão, JWT). Os demais módulos identificam o usuário
+  envolvido (requester, author) recebendo o `id` explicitamente no corpo da requisição — ver
+  `specs/ticket.md` — sem verificação de identidade.
 - Autorização/RBAC granular. O enum `UserRole` existe apenas para contexto, não é verificado em
   nenhum endpoint.
 - Edição/remoção de usuário.

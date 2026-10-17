@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Supressoes pontuais, cada uma com justificativa. Qualquer exclusao nova aqui deve ser
+  revisada no code review (ver .github/workflows/code-review.yml) como qualquer outra mudanca.
+-->
+<FindBugsFilter>
+    <!--
+      Injecao de dependencia via construtor (padrao Spring, usado em todos os controllers):
+      armazenar a referencia de um bean singleton e o proposito pretendido, nao uma exposicao
+      de estado mutavel. SpotBugs nao tem um caso especial para este padrao.
+    -->
+    <Match>
+        <Class name="com.giansantos.helpdesk.ticket.api.TicketController"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      PromptBuilder e ContextBuilder geram texto para um prompt de LLM / payload JSON, nunca
+      para um console de sistema: "\n" e a escolha correta e portavel aqui, "%n" (que adaptaria
+      para \r\n no Windows) seria incorreto para este caso de uso.
+    -->
+    <Match>
+        <Class name="com.giansantos.helpdesk.assistant.internal.service.PromptBuilder"/>
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
+    </Match>
+    <Match>
+        <Class name="com.giansantos.helpdesk.assistant.internal.service.ContextBuilder"/>
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
+    </Match>
+</FindBugsFilter>

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Testes unitarios + integracao (Testcontainers/Postgres) + ModularityTests. O jacoco:check
+      # ja esta amarrado a fase "verify" no pom.xml: o build falha aqui se a cobertura cair
+      # abaixo do minimo configurado (pilar Quality Gate).
+      - name: Build, testes e gate de cobertura (mvn verify)
+        run: mvn -B verify
+
+      - name: Publicar relatorio de cobertura JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      - name: Publicar documentacao de modulos (Spring Modulith)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modulith-docs
+          path: target/spring-modulith-docs/
