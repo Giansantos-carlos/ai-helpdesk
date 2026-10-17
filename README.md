@@ -29,6 +29,85 @@ Comunicacao entre modulos e sempre via evento Spring (`ticket` → `assistant`) 
 interface de consulta publica (`UserQueryApi`, `KnowledgeBaseQueryApi`, `TicketQueryApi`) —
 nunca acessando `internal` de outro modulo.
 
+## Arquitetura
+
+Um unico deployable (monolito). Cada modulo so expoe `api/`/`event/` (marcado com
+`@NamedInterface`); o resto fica em `internal/`, inacessivel a outros modulos — limite
+verificado automaticamente por `ModularityTests`.
+
+```mermaid
+flowchart LR
+    Ag(["Atendente / Cliente<br/>(HTTP)"]) -->|REST| API
+
+    subgraph API[" ai-helpdesk "]
+        direction TB
+        U["<b>user</b><br/>api: UserController, UserQueryApi<br/>internal: User, UserService"]
+        KB["<b>knowledgebase</b><br/>api: KbArticleController, KnowledgeBaseQueryApi<br/>internal: KbArticle, KbArticleService"]
+        T["<b>ticket</b><br/>api/event: TicketController, TicketQueryApi, TicketCreated<br/>internal: Ticket, TicketMessage, TicketService"]
+        A["<b>assistant</b><br/>api: SuggestionController<br/>internal: ContextBuilder, PromptBuilder, ClaudeAssistantClient<br/>listener: TicketEventListener"]
+        S["<b>shared</b> (OPEN)<br/>exceptions, ApiExceptionHandler"]
+    end
+
+    A -- "UserQueryApi" --> U
+    A -- "KnowledgeBaseQueryApi" --> KB
+    A -- "TicketQueryApi" --> T
+    T -. "evento: TicketCreated" .-> A
+
+    API --> PG[("Postgres")]
+    A -->|HTTPS POST /v1/messages| Claude[("API Anthropic<br/>Claude")]
+```
+
+Seta cheia = chamada direta via interface de consulta publica do modulo. Seta pontilhada =
+evento assincrono do Spring Modulith (`ticket` publica, `assistant` escuta; nenhum dos dois
+conhece o codigo do outro).
+
+## Fluxo completo (criar ticket → sugestao de IA)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ag as Atendente
+    participant TC as TicketController
+    participant TS as TicketService
+    participant DB as Postgres
+    participant TEL as TicketEventListener (assistant)
+    participant CB as ContextBuilder
+    participant KBApi as KnowledgeBaseQueryApi
+    participant UApi as UserQueryApi
+    participant CAC as ClaudeAssistantClient
+    participant Claude as API Anthropic
+    participant SC as SuggestionController
+
+    Ag->>TC: POST /api/tickets {subject, requesterId}
+    TC->>TS: createTicket(...)
+    TS->>DB: INSERT tickets (status=OPEN)
+    TS->>TS: publishEvent(TicketCreated)
+    TS-->>TC: Ticket
+    TC-->>Ag: 201 TicketResponse
+
+    Note over TS,TEL: Apos commit da transacao (@ApplicationModuleListener, virtual thread)
+    TS->>TEL: TicketCreated(ticketId, subject, requesterId)
+    TEL->>CB: build(ticketId)
+    CB->>DB: findTicket / findRecentMessages (via TicketQueryApi)
+    CB->>KBApi: searchByKeywords(subject, maxArticles)
+    CB->>UApi: findSummary(requesterId)
+    CB->>CB: rankeia + trunca contra orcamento de caracteres
+    CB-->>TEL: ContextBundle
+    TEL->>CAC: suggestReply(ContextBundle)
+    CAC->>Claude: POST /v1/messages
+    Claude-->>CAC: resposta sugerida (ou erro)
+    CAC-->>TEL: texto sugerido / excecao
+    TEL->>DB: UPDATE reply_suggestions (READY ou FAILED)
+
+    Ag->>SC: GET /api/tickets/{id}/suggestion
+    SC->>DB: findFirstByTicketIdOrderByCreatedAtDesc
+    SC-->>Ag: 200 SuggestionResponse (ou 404 se ainda nao gerada)
+```
+
+O passo entre `TicketEventListener` e a resposta ao atendente (linhas 6-14) e assincrono: a
+`SuggestionResponse` pode legitimamente ainda nao existir nos primeiros instantes apos criar o
+ticket — isso e esperado, nao um bug (ver `specs/assistant.md`).
+
 ## Rodando localmente
 
 ```bash
